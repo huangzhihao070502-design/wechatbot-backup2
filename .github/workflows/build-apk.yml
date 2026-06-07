@@ -41,10 +41,11 @@ jobs:
     - name: Accept licenses
       run: yes | sdkmanager --licenses || true
 
-    - name: Install SDK components
+    - name: Install SDK and NDK components
       run: |
         sdkmanager "platforms;android-35" "build-tools;35.0.0"
-        sdkmanager --list --no_https | grep -E "ndk|cmake" || true
+        sdkmanager "ndk;27.0.12077973"
+        echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> $GITHUB_ENV
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
@@ -53,8 +54,11 @@ jobs:
 
     - name: Grant execute permission
       run: chmod +x gradlew || true
+
     - name: Build Debug APK
-      run: gradle assembleDebug --stacktrace --no-daemon
+      run: |
+        export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973
+        gradle assembleDebug --stacktrace --no-daemon
 
     - name: Find APK
       run: |
