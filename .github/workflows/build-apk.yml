@@ -1,0 +1,70 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Link Python for Chaquopy
+      run: |
+        PYTHON_PATH=$(which python3.11 || which python3)
+        sudo mkdir -p /usr/bin
+        sudo ln -sf "$PYTHON_PATH" /usr/bin/python3.11
+        echo "Python path: $(which python3.11)"
+        python3.11 --version
+
+    - name: Install pip packages
+      run: |
+        python3.11 -m pip install --upgrade pip
+        python3.11 -m pip install qrcode
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Accept licenses
+      run: yes | sdkmanager --licenses || true
+
+    - name: Install SDK components
+      run: |
+        sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        sdkmanager --list --no_https | grep -E "ndk|cmake" || true
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Grant execute permission
+      run: chmod +x gradlew || true
+    - name: Build Debug APK
+      run: gradle assembleDebug --stacktrace --no-daemon
+
+    - name: Find APK
+      run: |
+        echo "=== Build outputs ==="
+        find app/build/outputs -name "*.apk" 2>/dev/null || echo "No APK found"
+        echo "=== Build directory ==="
+        ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "Debug dir not found" 
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: 修改备份-debug
+        path: |
+          app/build/outputs/apk/debug/*.apk
+          app/build/outputs/apk/**/*.apk
+        retention-days: 30
